@@ -1,0 +1,6 @@
+<launch>
+	<group ns="panda_leader">
+   		<node name="my_moveit_node" pkg="franka_hunter_gazebo" type="franka_teleop_camera.py" 
+        respawn="false" 	output="screen" />    
+	</group>
+</launch>

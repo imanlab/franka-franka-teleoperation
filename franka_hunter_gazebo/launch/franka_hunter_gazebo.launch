@@ -1,0 +1,176 @@
+<?xml version="1.0"?>
+<launch>
+
+    <arg name="sim" default="true"/>
+    <arg name="control_rate" default="50" />
+    <!-- <arg name="robot_model" default="$(find thorvald_panda_description)/config/thorvald_ii_4wd4ws_std_ncnr.yaml"/> -->
+    <arg name="tf_prefix" default=""/>
+    <arg name="enable_odom_tf" default="true"/>
+    <arg name="odom_frame_id" default="odom"/>
+    <arg name="can_interface_type" default=""/>
+    <arg name="joint_states_remap_to" default="base_driver/joint_states" />
+    <arg name="use_gripper" default="true" />
+    <arg name="arm_id" default="panda_follower" />
+    <arg name="panda_controller" default="" />
+    <arg name="rqt_steering" default="false" />
+      <arg name="initial_joint_positions"
+       doc="Initial joint configuration of the panda. Specify as a list of name/value pairs in form of '-J [name-of-joint] [value-in-rad]'. Default is a 90 degree bend in the elbow"
+       default="-J $(arg arm_id)_joint1 0
+                -J $(arg arm_id)_joint2 -0.785398163
+                -J $(arg arm_id)_joint3 0
+                -J $(arg arm_id)_joint4 -2.35619449
+                -J $(arg arm_id)_joint5 0
+                -J $(arg arm_id)_joint6 1.57079632679
+                -J $(arg arm_id)_joint7 0.785398163397
+                -J $(arg arm_id)_finger_joint1 0.001
+                -J $(arg arm_id)_finger_joint2 0.001"
+       />
+
+    
+
+    <!--load hunter2 description (urdf) to param server -->
+    <param name="robot_description" command="$(find xacro)/xacro '$(find franka_hunter_base)/urdf/franka_hunter_base_gazebo.xacro'" />
+
+    <!-- start Gazebo software -->
+    <include file="$(find gazebo_ros)/launch/empty_world.launch" >
+        <!-- <arg name="world_name" value="$(find franka_hunter_gazebo)/world/house.world"/> 
+        <arg name="gui" default="true"/> -->
+        <arg name="use_sim_time" value="true"/>
+        <arg name="world_name" value="$(find franka_hunter_gazebo)/world/clearpath_playpen.world"/>
+        <arg name="paused" value="false"/>
+        <arg name="gui" value="true"/>
+        <arg name="headless" value="false"/>
+        <arg name="debug" value="false"/>        
+
+    </include> 
+
+    <!-- using gazebo_ros package service to spawn the hunter2 model in Gazebo -->
+    <node name="hunter_spawn" pkg="gazebo_ros" type="spawn_model" output="screen" args="-urdf -param robot_description -model franka_hunter_base -z 0.05
+                $(arg initial_joint_positions)" 
+      respawn="false" /> 
+
+
+    <!-- Setting up hunter2 -->
+    <!--Load controllers to param server (hunter2) -->
+    <!-- Load controller parameters -->
+    <rosparam command="load" file="$(find franka_hunter_control)/config/ctrl_ackermann_steering_controller.yaml" >
+    <param name= "odom_frame_id" value= "/odom" />
+    </rosparam>
+    <rosparam command="load" file="$(find franka_hunter_control)/config/ctrl_gains.yaml" />
+    <rosparam command="load" file="$(find franka_hunter_control)/config/ctrl_joint_state_publisher.yaml" />
+    <rosparam command="load" file="$(find franka_hunter_control)/config/ctrl_steer_bot_hardware_gazebo.yaml" />
+    
+
+   <!-- Spawn the controller -->
+    <node name="controller_spawner_hunter2" pkg="controller_manager" type="spawner" respawn="false" output="screen"
+        args="
+            joint_state_publisher
+            ackermann_steering_controller
+          --timeout 60"
+    >
+    </node>
+    <rosparam command = "load" file="$(find franka_hunter_control)/config/hunter2_controller.yaml" />
+
+
+    
+    <!-- the main controller that provides real and simulated controller  -->
+<!--     <node pkg="thorvald_base" type="base_driver" name="base_driver" output="screen">
+        <param name="tf_prefix" value="$(arg tf_prefix)" />
+        <rosparam command="load" file="$(arg robot_model)" />
+        <param name="simple_sim" value="$(arg sim)" />
+        <param name="enable_odom_tf" value="$(arg enable_odom_tf)" />
+        <param name="odom_frame_id" value="$(arg odom_frame_id)" /> -->
+        <!-- passthrough_gazebo_odometry == true will forward gazebo odometry should it become available -->
+<!--         <param name="passthrough_gazebo_odometry" value="true" /> 
+        <param unless="$(eval can_interface_type == '')" name="can_interface_type" value="$(arg can_interface_type)" />
+        <param unless="$(eval can_interface_type == '')" name="can_interface_name" value="$(arg can_interface_name)" />
+        <remap from="cmd_vel" to="twist_mux/cmd_vel" />
+        <remap from="joint_states" to="$(arg joint_states_remap_to)" />
+    </node> -->
+
+    <!-- the main controller that provides simulated controller  -->
+    <node name="hunter_base_sim_node" pkg="franka_hunter_base" type="hunter_base_sim_node" output="screen">
+        <param name="simulated_robot" type="bool" value="$(arg sim)" />
+        <param name="control_rate" type="int" value="$(arg control_rate)" />
+        <param name="publish_tf" type="bool" value="$(arg enable_odom_tf)" />
+
+        <param name="odom_frame" type="string" value="odom" />
+        <param name="base_frame" type="string" value="base_link" />
+    </node>
+
+    <!-- Twist mux args
+        twist and lock topics to be used by twist_mux, command multiplexer -->
+    <arg name="twist_mux_topics" value="$(find franka_hunter_twist_mux)/config/twist_mux.yaml" />
+
+    <!-- Twist mux bringup -->
+    <include file="$(find franka_hunter_twist_mux)/launch/twist_mux.launch">
+        <arg name="config_vals" value="$(arg twist_mux_topics)" />
+    </include>
+
+
+    <!-- Setting up panda  -->
+    <group ns="$(arg arm_id)">
+        <!-- Load controllers to param server (panda) -->
+        <rosparam file="$(find franka_hunter_gazebo)/config/franka_hw_sim.yaml" subst_value="true" />
+        <!-- <rosparam file="$(find franka_gazebo)/config/sim_controllers.yaml" subst_value="true" /> -->
+        <rosparam file="$(find franka_hunter_gazebo)/config/franka_panda_sim_controllers.yaml" subst_value="true" />
+
+        
+        <!-- Spawn the controller -->
+        <node name="controller_spawner_thorvald" pkg="controller_manager" type="spawner" respawn="false" output="screen" 
+            args="
+                franka_state_controller
+                effort_trajectory_controller
+                ">
+        </node>
+
+
+        <!-- Spawn required ROS controllers for gripper -->
+        <node pkg="controller_manager"
+            type="spawner"
+            name="$(arg arm_id)_gripper_spawner"
+            if="$(arg use_gripper)"
+            args="effort_gripper_trajectory_controller"
+            respawn="false"
+        />
+
+    </group>
+
+    <!-- Launch the robot state publisher -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" >
+    </node>
+
+    <node name="joint_state_publisher" type="joint_state_publisher" pkg="joint_state_publisher">
+        <rosparam param="source_list">["/joint_states", "/panda_follower/franka_state_controller/joint_states", "/panda_follower/franka_gripper/joint_states"] </rosparam>
+    </node>
+
+
+
+    <!-- for model updates in rviz -->
+
+    
+    <!-- start rviz --> 
+    <!-- <include file="$(find panda_moveit_config)/launch/moveit_rviz.launch">
+    </include> -->
+
+
+    <!-- Launch a rqt steering GUI for publishing to /steer_bot/steer_drive_controller/cmd_vel -->
+    <!-- Launch a rqt steering GUI for publishing to /steer_bot/steer_drive_controller/cmd_vel -->
+        <node pkg="rqt_robot_steering" type="rqt_robot_steering" name="rqt_robot_steering" if="$(eval arg('rqt_steering') == 'true')">
+        <param name="default_topic" value="ackermann_steering_controller/cmd_vel"/>                         <!-- default velocity control topic name -->
+        <param name="default_vx_max" value="1.0"/>                        <!-- linear velocity max value    m/s -->
+        <param name="default_vx_min" value="-1.0"/>                       <!-- linear velocity min value    m/s-->
+        <param name="default_vw_max" value="0.69"/>                    <!-- angular velocity max value  rad/s (adaptor for urdf joint limit) -->
+        <param name="default_vw_min" value="-0.69"/>                   <!-- angular velocity min value  rad/s (adaptor for urdf joint limit) -->
+        </node>
+
+
+    <node name="rviz_node" pkg="rviz" type="rviz" output="screen" args="-d $(find franka_hunter_base)/rviz/display.rviz"/>
+
+
+
+    <!-- Load move_base and map server -->
+    <!-- <include file="$(find thorvald_panda_navigation)/launch/thorvald_panda_navigation_stack.launch"/> -->
+
+
+</launch>

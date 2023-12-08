@@ -1,0 +1,82 @@
+<launch>
+
+    <arg name="sim" default="true"/>
+    <arg name="control_rate" default="50" />
+    <arg name="enable_odom_tf" default="true"/>
+    <arg name="arm_id" default="panda_follower" />
+    <arg name="use_gripper" default="true" />
+
+    <!--load hunter2 description (urdf) to param server -->
+    <param name="robot_description" command="$(find xacro)/xacro '$(find franka_hunter_base)/urdf/franka_hunter_base_gazebo.xacro'" />
+
+    <!--Launch the Lidar for laser scan-->
+    <include file="$(find ydlidar_ros_driver)/launch/X4.launch">
+        <param name="angle_min" value= " -60 "/>
+        <param name="angle_max" value= " +60 "/>
+        <param name="range_min" value= " 0.1 "/>
+        <param name="range_max" value= " 5 "/>
+    </include>
+
+    <!-- the main controller that provides simulated controller  -->
+    <!-- <node name="hunter_base_sim_node" pkg="franka_hunter_base" type="hunter_base_sim_node" output="screen">
+        <param name="simulated_robot" type="bool" value="$(arg sim)" />
+        <param name="control_rate" type="int" value="$(arg control_rate)" />
+        <param name="publish_tf" type="bool" value="$(arg enable_odom_tf)" />
+
+        <param name="odom_frame" type="string" value="odom" />
+        <param name="base_frame" type="string" value="base_link" />
+    </node> -->
+
+       <!-- Spawn the controller -->
+    <node name="controller_spawner_hunter2" pkg="controller_manager" type="spawner" respawn="false" output="screen"
+        args="
+            joint_state_publisher
+            ackermann_steering_controller
+          --timeout 60"
+    >
+    </node>
+    <rosparam command = "load" file="$(find franka_hunter_control)/config/hunter2_controller.yaml" />
+
+
+       <!-- Twist mux args
+        twist and lock topics to be used by twist_mux, command multiplexer -->
+    <!-- <arg name="twist_mux_topics" value="$(find franka_hunter_twist_mux)/config/twist_mux.yaml" /> -->
+
+    <!-- Twist mux bringup -->
+    <!-- <include file="$(find franka_hunter_twist_mux)/launch/twist_mux.launch">
+        <arg name="config_vals" value="$(arg twist_mux_topics)" />
+    </include> -->
+
+
+    <!-- Setting up panda  -->
+    <!-- <group ns="$(arg arm_id)"> -->
+        <!-- Load controllers to param server (panda) -->
+        <!-- <rosparam file="$(find franka_hunter_gazebo)/config/franka_hw_sim.yaml" subst_value="true" /> -->
+        <!-- <rosparam file="$(find franka_gazebo)/config/sim_controllers.yaml" subst_value="true" /> always off-->
+        <!-- <rosparam file="$(find franka_hunter_gazebo)/config/franka_panda_sim_controllers.yaml" subst_value="true" /> -->
+
+        
+        <!-- Spawn the controller -->
+        <!-- <node name="controller_spawner_thorvald" pkg="controller_manager" type="spawner" respawn="false" output="screen" 
+            args="
+                franka_state_controller
+                effort_trajectory_controller
+                ">
+        </node> -->
+
+
+        <!-- Spawn required ROS controllers for gripper -->
+
+    <!-- </group> -->
+
+        <!-- Launch the robot state publisher -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" >
+    </node>
+
+    <node name="joint_state_publisher" type="joint_state_publisher" pkg="joint_state_publisher">
+        <rosparam param="source_list">["/joint_states", "/panda_follower/franka_state_controller/joint_states", "/panda_follower/franka_gripper/joint_states"] </rosparam>
+    </node>
+
+    <node name="rviz_node" pkg="rviz" type="rviz" output="screen" args="-d $(find franka_hunter_base)/rviz/real_robot_map.rviz"/>
+
+</launch>

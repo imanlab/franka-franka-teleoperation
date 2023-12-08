@@ -1,0 +1,14 @@
+<launch>
+
+    <arg name="subject_name" default="unknown"/>
+     <arg name="ex_no" default="unknown"/>
+     <arg name="condition" default="h"/>
+
+    <node name="experiment_1_rosbag" pkg="rosbag" type="record" output = "screen" args="-O /home/venkatesh/franka_hunter_ws/src/$(arg subject_name)_$(arg condition)_$(arg ex_no) 
+    /panda_leader/franka_state_controller/franka_states /panda_leader/franka_state_controller/joint_states /panda_follower/panda_follower_state_controller/joint_states
+    /panda_follower/panda_follower_state_controller/franka_states /odom /move_base/DWAPlannerROS/global_plan /move_base_simple/goal /scan"/>
+
+
+
+
+</launch>
