@@ -1,4 +1,4 @@
-This package should be on your **leader PC ** workspace
+This package should be on your **leader PC** workspace
 
 Make sure you have franka_ros installed and working in your workspace
 
