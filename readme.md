@@ -2,14 +2,14 @@ Make sure two PCs are able to communicate with each other using ping
 
 
 
-If so and if you are on the leader PC add this to your .bashrc
+If so and if you are on the leader PC add this at the end of your .bashrc file
 
 ```
 export ROS_MASTER_URI=http://{LEADER_IP}:11311
 export ROS_IP={LEADER_IP}
 ```
 
-If so, add the following lines at the end of your .bashrc file
+If you are on the follower PC, add the following lines at the end of your .bashrc file
 
 ```
 export ROS_MASTER_URI=http://{LEADER_IP}:11311
